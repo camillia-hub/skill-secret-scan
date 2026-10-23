@@ -1,0 +1,1 @@
+{"name": "Secret Scan", "slug": "skill-secret-scan", "kind": "skill", "description": "Pre-push review of the working tree for credentials and license-incompatible dependencies, with concrete remediation steps.", "version": "1.0.0", "priceMinor": 0, "currency": "USD", "contentDir": "skill"}
