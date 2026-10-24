@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Marketplace validation: the skill follows the anti-collision placement
-// contract. hub.json declares the extension id; every payload file lives
+// contract. extension.json declares the extension id; every payload file lives
 // under extensions/<id>/; extensions/<id>/SKILL.md carries frontmatter with
 // name and description and at least 2 KB of real content.
 import { readFileSync, readdirSync, statSync } from "node:fs";
@@ -34,19 +34,19 @@ function walk(dir, base = dir) {
 
 let hub;
 try {
-  hub = JSON.parse(readFileSync(join(repoRoot, "hub.json"), "utf8"));
+  hub = JSON.parse(readFileSync(join(repoRoot, "extension.json"), "utf8"));
 } catch {
-  fail("hub.json is missing or not valid JSON");
+  fail("extension.json is missing or not valid JSON");
 }
 const id = hub.id;
 if (typeof id !== "string" || !KEBAB_ID.test(id)) {
-  fail("hub.json must declare a unique kebab-case extension 'id'");
+  fail("extension.json must declare a unique kebab-case extension 'id'");
 }
 if (hub.kind !== "skill") {
-  fail(`hub.json kind must be 'skill' (found '${hub.kind}')`);
+  fail(`extension.json kind must be 'skill' (found '${hub.kind}')`);
 }
 if (hub.contentDir !== `extensions/${id}`) {
-  fail(`hub.json contentDir must be 'extensions/${id}' (found '${hub.contentDir}')`);
+  fail(`extension.json contentDir must be 'extensions/${id}' (found '${hub.contentDir}')`);
 }
 
 const payloadRoot = `extensions/${id}`;
