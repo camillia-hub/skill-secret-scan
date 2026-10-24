@@ -11,13 +11,13 @@ A Camillia skill that reviews the working tree before a push: it finds credentia
 
 ## Install
 
-Install from the Camillia Community Hub. After installation the skill lives in the workspace under `.workspace/skills/skill-secret-scan/` and the agent applies it before commits and pushes.
+Install from the Camillia Community Hub. After installation the skill lives in the workspace under `.workspace/extensions/secret-scan/` and the agent applies it before commits and pushes.
 
 ## Contents
 
-- `skill/SKILL.md` - the procedure the agent follows
-- `skill/secret-patterns.md` - the detection pattern catalog
-- `skill/license-policy.md` - the dependency license tiers
+- `extensions/secret-scan/SKILL.md` - the procedure the agent follows
+- `extensions/secret-scan/secret-patterns.md` - the detection pattern catalog
+- `extensions/secret-scan/license-policy.md` - the dependency license tiers
 
 ## Validate
 

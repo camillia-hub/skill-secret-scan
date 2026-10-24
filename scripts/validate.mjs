@@ -1,34 +1,97 @@
 #!/usr/bin/env node
-// Marketplace validation: skill/SKILL.md must exist, carry frontmatter with
-// name and description, and contain at least 2 KB of real content.
-import { readFileSync, statSync } from "node:fs";
-import { dirname, join } from "node:path";
+// Marketplace validation: the skill follows the anti-collision placement
+// contract. hub.json declares the extension id; every payload file lives
+// under extensions/<id>/; extensions/<id>/SKILL.md carries frontmatter with
+// name and description and at least 2 KB of real content.
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
-const skillFile = join(repoRoot, "skill", "SKILL.md");
 const MIN_BYTES = 2048;
+const KEBAB_ID = /^[a-z0-9](-?[a-z0-9]){2,39}$/;
 
 function fail(message) {
   console.error(`validate: FAIL - ${message}`);
   process.exit(1);
 }
 
+function isSafeRelativePath(p) {
+  if (!p || p.length > 400) return false;
+  if (p.startsWith("/") || p.includes("\\") || p.includes(":")) return false;
+  return p.split("/").every((s) => s.length > 0 && s !== "." && s !== "..");
+}
+
+function walk(dir, base = dir) {
+  const out = [];
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) out.push(...walk(full, base));
+    else out.push(relative(base, full).split(sep).join("/"));
+  }
+  return out.sort();
+}
+
+let hub;
+try {
+  hub = JSON.parse(readFileSync(join(repoRoot, "hub.json"), "utf8"));
+} catch {
+  fail("hub.json is missing or not valid JSON");
+}
+const id = hub.id;
+if (typeof id !== "string" || !KEBAB_ID.test(id)) {
+  fail("hub.json must declare a unique kebab-case extension 'id'");
+}
+if (hub.kind !== "skill") {
+  fail(`hub.json kind must be 'skill' (found '${hub.kind}')`);
+}
+if (hub.contentDir !== `extensions/${id}`) {
+  fail(`hub.json contentDir must be 'extensions/${id}' (found '${hub.contentDir}')`);
+}
+
+const payloadRoot = `extensions/${id}`;
+let payload;
+try {
+  payload = walk(join(repoRoot, "extensions"), repoRoot);
+} catch {
+  fail(`payload directory ${payloadRoot}/ does not exist`);
+}
+if (payload.length === 0) {
+  fail(`no payload files under ${payloadRoot}/`);
+}
+
+for (const rel of payload) {
+  if (!isSafeRelativePath(rel)) fail(`unsafe payload path '${rel}'`);
+  if (rel === ".workspace" || rel.startsWith(".workspace/")) {
+    fail(`'${rel}' must not carry the .workspace/ prefix`);
+  }
+  const segments = rel.split("/");
+  if (segments[0] !== "extensions" || segments.length < 3 || segments[1] !== id) {
+    fail(`'${rel}' is outside the skill's own directory ${payloadRoot}/`);
+  }
+  for (const segment of segments) {
+    if (segment.startsWith("cam-ext-")) {
+      fail(`'${rel}' misuses the reserved cam-ext- prefix`);
+    }
+  }
+}
+
+const skillPath = join(repoRoot, "extensions", id, "SKILL.md");
 let stats;
 try {
-  stats = statSync(skillFile);
+  stats = statSync(skillPath);
 } catch {
-  fail("skill/SKILL.md does not exist");
+  fail(`${payloadRoot}/SKILL.md does not exist`);
 }
 
 if (stats.size < MIN_BYTES) {
-  fail(`skill/SKILL.md is ${stats.size} bytes; expected at least ${MIN_BYTES} bytes of real content`);
+  fail(`${payloadRoot}/SKILL.md is ${stats.size} bytes; expected at least ${MIN_BYTES} bytes of real content`);
 }
 
-const text = readFileSync(skillFile, "utf8");
+const text = readFileSync(skillPath, "utf8");
 
 if (!text.startsWith("---")) {
-  fail("skill/SKILL.md must start with a '---' frontmatter block");
+  fail(`${payloadRoot}/SKILL.md must start with a '---' frontmatter block`);
 }
 
 const closingIndex = text.indexOf("\n---", 3);
@@ -46,4 +109,4 @@ if (!/^description:\s*\S+/m.test(frontmatter)) {
   fail("frontmatter must contain a 'description:' field");
 }
 
-console.log(`validate: OK - skill/SKILL.md (${stats.size} bytes) has frontmatter with name and description`);
+console.log(`validate: OK - ${payloadRoot}/SKILL.md (${stats.size} bytes) has frontmatter with name and description; ${payload.length} payload file(s) under ${payloadRoot}/`);
